@@ -1,0 +1,1 @@
+# serial_logging_for_novatel_equipment
