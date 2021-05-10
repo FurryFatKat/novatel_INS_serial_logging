@@ -98,7 +98,7 @@ def main():
     comport.parity='N'
     comport.stopbits=1
     comport.bytesize=8
-    
+    comport.open()
     # TODO::break current logging and force find COM port at specified baudrate
 
     # TODO::start read on a separate thread, and write to file continuously
