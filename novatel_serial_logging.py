@@ -1,11 +1,14 @@
+import os
 import serial
-from serial.tools import list_ports
 import argparse
+import datetime
 import time
 import threading
 import logging
 
-LOGLIST =[
+SUPPORTED_BAUD = [2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800]
+
+DEFAULT_LOGLIST =[
     'LOG VERSIONB ONCE',
     'LOG RXCONFIGB ONCE',
     'LOG RXSTATUSB ONCHANGED',
@@ -25,16 +28,44 @@ LOGLIST =[
     'LOG INSCONFIGB ONCHANGED',
     'LOG INSUPDATESTATUSB ONNEW']
 
-def establish_serial_connection(serialport,baudrate):
-    # add additional error handling for external use
-    # TODO: fix this port check
-    if serialport not in list_ports.comports():
-        raise ValueError('serial port {} does not exist'.format(serialport))
-    if type(baudrate) != int:
-        raise TypeError('baud rate must be integer')
+def establish_serial_connection(port,baudrate):
+    serialport = serial.Serial(port=port)
+    serialport.open()
+    serialport.send_break()
+    time.sleep(0.2)
+    serialport.send_break()
+    # loop through supported baud rate
+    for baud in SUPPORTED_BAUD:
+        logging.info('connecting at {}...'.format(baud))
+        serialport.baudrate = baud
+        # send command to change baud rate
+        time.sleep(0.2)
+        serialport.write('serialconfig {}\r'.format(baudrate).encode())
+        # check for response
+        if 'OK' in serialport.read(10):
+            logging.info('baud rate changed to {}'.format(baudrate))
+            break
 
-def read_from_serial():
-    pass
+    return serialport
+
+def read_from_serial(port, filename):
+    outputFile = open(filename,'wb')
+    incomingData = bytearray()
+    try:
+        while True:
+            if port.inWaiting():
+                incomingData = port.read(port.inWaiting())
+                if len(incomingData) > 0:
+                    outputFile.write(incomingData)
+                    outputFile.flush()
+                    incomingData = bytearray()
+            else:
+                time.sleep(0.1)
+    except KeyboardInterrupt:
+        if len(incomingData) > 0:
+            outputFile.write(incomingData)
+            outputFile.flush()
+        outputFile.close()
 
 def configure_logging_profile(serialport,baudrate):
     pass
@@ -47,8 +78,9 @@ def parse_arguments():
                         type=str,
                         help='Computer COM port of NovAtel Receiver connected')
     parser.add_argument('-f',
-                        required=True,
+                        required=False,
                         metavar='filename',
+                        default=datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S') + '.log',
                         type=str,
                         help='filename for logging to be saved')
     parser.add_argument('-b',
@@ -84,49 +116,23 @@ def parse_arguments():
 
 def main():
     args = parse_arguments()
-    print(type(args.c),args.c)
-    print(type(args.f),args.f)
-    print(type(args.b),args.b)
-    print(type(460800),type(460800)==int)
-    print(LOGLIST)
     
-    # establish connection
-    comport = serial.Serial()
-    comport.port = args.c
-    comport.baudrate = args.b
-    comport.timeout=None
-    comport.parity='N'
-    comport.stopbits=1
-    comport.bytesize=8
-    comport.open()
-    # TODO::break current logging and force find COM port at specified baudrate
+    comport = establish_serial_connection(args.c.upper(), args.b)
 
-    # TODO::start read on a separate thread, and write to file continuously
-    
+    # start read on a separate thread, and write to file continuously
+    readthread = threading.Thread(target=read_from_serial, args=(comport,os.path.join(os.getcwd(),args.f),))
+    readthread.start()
 
-    # sending standard SPAN logging profile 
-    for log in LOGLIST:
+    # send default SPAN logging profile 
+    for log in DEFAULT_LOGLIST:
+        logging.info('sending {}...'.format(log))
         comport.write((log + '\r').encode())
-        time.sleep(0.2)
+        time.sleep(0.1)
     
-    # read from serial and write to file
-    outputFile = open(args.f,'wb')
-    incomingData = bytearray()
-    try:
-        while True:
-            if comport.inWaiting():
-                incomingData = comport.read(comport.inWaiting())
-                if len(incomingData) > 0:
-                    outputFile.write(incomingData)
-                    incomingData = bytearray()
-            else:
-                time.sleep(0.1)
-    except KeyboardInterrupt:
-        outputFile.close()
+    # TODO:: configure INS
 
 
-
-    
+    readthread.join()
 
 
 if __name__ == "__main__":
