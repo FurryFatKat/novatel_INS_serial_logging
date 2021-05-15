@@ -6,6 +6,8 @@ import time
 import threading
 import logging
 
+# test comment
+
 SUPPORTED_BAUD = [2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800]
 
 DEFAULT_LOGLIST =[
