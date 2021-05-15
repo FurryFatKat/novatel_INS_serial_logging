@@ -42,7 +42,7 @@ def establish_serial_connection(port,baudrate):
         time.sleep(0.2)
         serialport.write('serialconfig {}\r'.format(baudrate).encode())
         # check for response
-        if 'OK' in serialport.read(10):
+        if b'<OK' in serialport.read(10):
             logging.info('baud rate changed to {}'.format(baudrate))
             break
 
@@ -116,8 +116,15 @@ def parse_arguments():
 
 def main():
     args = parse_arguments()
-    
-    comport = establish_serial_connection(args.c.upper(), args.b)
+    comport = serial.Serial()
+    comport.port = args.c
+    comport.baudrate = args.b
+    comport.bytesize = 8
+    comport.timeout=None
+    comport.parity =None
+    comport.stopbits=1
+    comport.open()
+    comport = establish_serial_connection(port=args.c.upper(), baudrate=args.b)
 
     # start read on a separate thread, and write to file continuously
     readthread = threading.Thread(target=read_from_serial, args=(comport,os.path.join(os.getcwd(),args.f),))
