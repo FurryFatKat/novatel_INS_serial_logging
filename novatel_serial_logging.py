@@ -14,6 +14,7 @@ DEFAULT_LOGLIST =[
     'LOG RXCONFIGB ONCE',
     'LOG RXSTATUSB ONCHANGED',
     'LOG RANGEB ONTIME 1',
+    'LOG RAWEPHEMB ONNEW',
     'LOG GPSEPHEMB ONNEW',
     'LOG GLOEPHEMERISB ONNEW',
     'LOG GALFNAVEPHEMERISB ONNEW',
@@ -31,20 +32,23 @@ DEFAULT_LOGLIST =[
 
 def establish_serial_connection(port,baudrate):
     serialport = serial.Serial(port=port)
-    serialport.open()
+    serialport.timeout = 5
     serialport.send_break()
     time.sleep(0.2)
     serialport.send_break()
+    time.sleep(0.2)
     # loop through supported baud rate
     for baud in SUPPORTED_BAUD:
         logging.info('connecting at {}...'.format(baud))
         serialport.baudrate = baud
         # send command to change baud rate
         time.sleep(0.2)
+        serialport.flushInput()
         serialport.write('serialconfig {}\r'.format(baudrate).encode())
         # check for response
         if b'<OK' in serialport.read(10):
             logging.info('baud rate changed to {}'.format(baudrate))
+            serialport.timeout = None
             break
 
     return serialport
@@ -67,9 +71,6 @@ def read_from_serial(port, filename):
             outputFile.write(incomingData)
             outputFile.flush()
         outputFile.close()
-
-def configure_logging_profile(serialport,baudrate):
-    pass
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='NovAtel Receiver Data Logging')
@@ -95,49 +96,48 @@ def parse_arguments():
                         required=False,
                         metavar='EPSON_G320',
                         type=str,
-                        help='placeholder for specifying the IMU connected to receiver')
+                        help='specify the IMU connected to receiver')
     parser.add_argument('-ip',
                         required=False,
                         metavar='COM2',
                         type=str,
-                        help='placeholder for specifying port used for IMU connection [COM1,COM2,COM3,COM4,SPI]')
+                        help='port used for IMU connection [COM1,COM2,COM3,COM4,SPI]')
     parser.add_argument('-la',
                         required=False,
                         metavar=('X','Y','Z'),
                         nargs=3,
                         type=float,
-                        help='placeholder for configuring lever arm from IMU Center of Navigation to antenna')
+                        help='lever arm from IMU Center of Navigation to antenna')
     parser.add_argument('-rbv',
                         required=False,
                         metavar=('X','Y','Z'),
                         nargs=3,
                         type=float,
-                        help='placeholder for configuring rotation from IMU body to vehicle frame')
+                        help='rotation from IMU body to vehicle frame')
     return parser.parse_args()
 
 def main():
     args = parse_arguments()
-    comport = serial.Serial()
-    comport.port = args.c
-    comport.baudrate = args.b
-    comport.bytesize = 8
-    comport.timeout=None
-    comport.parity =None
-    comport.stopbits=1
-    comport.open()
     comport = establish_serial_connection(port=args.c.upper(), baudrate=args.b)
 
     # start read on a separate thread, and write to file continuously
     readthread = threading.Thread(target=read_from_serial, args=(comport,os.path.join(os.getcwd(),args.f),))
     readthread.start()
 
+    # configure INS
+    if args.i:
+        if not args.ip or not args.la or not args.rbv:
+            raise ValueError('Missing Input for Configuring INS: ip/LA/RBV')
+        else:
+            comport.write('connectimu {} {}\r'.formate(args.ip,args.i).encode())
+            comport.write('setinsrotation RBV {} {} {} 3 3 3\r'.formate(args.la[0],args.la[1],args.la[2]).encode())
+            comport.write('setinstranslation ANT1 {} {} {} 0.05 0.05 0.05\r'.formate(args.rbv[0],args.rbv[1],args.rbv[2]).encode())
+
     # send default SPAN logging profile 
     for log in DEFAULT_LOGLIST:
         logging.info('sending {}...'.format(log))
         comport.write((log + '\r').encode())
         time.sleep(0.1)
-    
-    # TODO:: configure INS
 
 
     readthread.join()
