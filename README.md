@@ -24,3 +24,5 @@ usage: novatel_serial_logging.py [-h] -c COM24 [-f filename] [-b 460800]
 Example:
 - OEM7 NovAtel Receiver connected to computer on COM27. Receiver COM2 is connected to Litef_microIMU. Lever arm from IMU Center of Navigation to Antenna Phase Center is 1, 2, 3 for X, Y, Z axis respectively in IMU Body Frame. Rotation from IMU Body Frame to Vehicle Frame is 0, 90, 0 for X, Y, Z axis respectively.
   - python novatel_serial_logging.py -c COM27 -i LITEF_MICROIMU -ip COM2 -la 1 2 3 -rbv 0 90 0
+- OEM7 NovAtel Receiver connected to computer on COM27. No IMU used.
+  - python novatel_serial_logging.py -c COM27
