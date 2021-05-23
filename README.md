@@ -1,4 +1,4 @@
-# serial_logging_for_novatel_equipment
+# novatel_INS_serial_logging
 
 Note: 
 - This script has only been tested with Python 3.7 and it should work with Python 3.7+
