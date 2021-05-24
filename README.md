@@ -1,5 +1,7 @@
 # novatel_INS_serial_logging
 
+NovAtel Serial Logging for OEM7 GNSS + INS. Good for post-processing.
+
 Note: 
 - This script has only been tested with Python 3.7 and it should work with Python 3.7+
 - All libraries used are native to Python 3.7+
